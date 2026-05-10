@@ -64,6 +64,9 @@ export class TuyaBLEDevice extends EventEmitter {
   }
 
   async ensureReady(): Promise<void> {
+    if (this.config.monitorOnly) {
+      throw new Error('monitorOnly mode: BLE control disabled for this lock');
+    }
     if (this.state === AuthState.READY) {
       this.bumpIdle();
       return;

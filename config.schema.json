@@ -84,6 +84,12 @@
               "default": 3,
               "description": "Tuya BLE protocol version (1, 2, or 3). Newer A201/2B10/2B11-style locks use 3; older FD50/vendor-char locks (e.g. some 8052Y units) often use 2. If the lock connects but never replies to DEVICE_INFO, try 2."
             },
+            "monitorOnly": {
+              "title": "Monitor-only mode (no BLE control)",
+              "type": "boolean",
+              "default": false,
+              "description": "Publish the HomeKit lock tile but never attempt to connect over BLE. Use for FD50 / SDK-2.x locks (e.g. 8052Y) whose auth protocol isn't publicly documented — combine with the homebridge-tuya cloud plugin's deviceOverrides to surface battery and unlock events from the cloud side."
+            },
             "dpsLogLevel": {
               "title": "DP log level",
               "type": "string",
@@ -123,6 +129,7 @@
             "locks[].batteryStateDpId",
             "locks[].idleDisconnectMs",
             "locks[].protocolVersion",
+            "locks[].monitorOnly",
             "locks[].dpsLogLevel"
           ]
         }

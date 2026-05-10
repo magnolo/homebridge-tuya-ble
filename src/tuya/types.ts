@@ -14,6 +14,13 @@ export interface LockConfig {
   idleDisconnectMs?: number;
   dpsLogLevel?: 'off' | 'info' | 'debug';
   protocolVersion?: number;
+  /**
+   * If true, the plugin publishes the HomeKit accessory but never attempts to
+   * connect to the lock over BLE. Useful for FD50/SDK-2.x locks (e.g. 8052Y)
+   * whose auth protocol isn't publicly documented — pair this with the
+   * homebridge-tuya cloud plugin's deviceOverrides for status visibility.
+   */
+  monitorOnly?: boolean;
 }
 
 export interface PlatformConfigShape {

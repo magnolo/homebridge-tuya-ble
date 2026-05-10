@@ -72,6 +72,12 @@ export class TuyaBLELockAccessory {
 
   private async handleLockTargetSet(value: CharacteristicValue): Promise<void> {
     const { Characteristic } = this.platform.api.hap;
+    if (this.cfg.monitorOnly) {
+      // Read-only mode: surface the limitation cleanly to HomeKit without retrying.
+      throw new this.platform.api.hap.HapStatusError(
+        this.platform.api.hap.HAPStatus.READ_ONLY_CHARACTERISTIC,
+      );
+    }
     const target = Number(value);
     const secured = target === Characteristic.LockTargetState.SECURED;
     const dpValue = this.lockInverted ? secured : !secured;

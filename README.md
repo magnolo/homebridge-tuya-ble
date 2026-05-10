@@ -124,6 +124,33 @@ Locks deep-sleep to save battery. The plugin connects on demand, runs the operat
 - **Lock category only.** Smart bulbs, sensors, and other Tuya BLE devices are out of scope.
 - **No pairing flow.** This plugin does not pair locks — it only talks to ones already paired in Smart Life.
 - **Wake-only locks.** Some fingerprint-only locks don't advertise until you touch them. Lock/unlock from HomeKit will simply time out and retry until the lock is awake.
+- **SDK 2.x locks (FD50 service, e.g. Tuya 8052Y / `lxyrmroq`) are not supported for unlock.** Their auth uses security flags `0x0E / 0x0F` and a key derivation that is undocumented in any public Tuya source code or community reverse-engineering. The plugin connects fine, finds the right GATT characteristic, sends the right framed packet — and the lock rejects it because we can't generate the right AES key. Set `monitorOnly: true` in the lock's config to suppress the failed connect attempts and use the **homebridge-tuya cloud plugin** for status visibility (battery, unlock events, alarms, doorbell). See the section below.
+
+## Read-only status for FD50 / SDK-2.x locks via the cloud plugin
+
+If your lock falls into the unsupported category above, the [homebridge-tuya](https://github.com/homebridge-plugins/homebridge-tuya) cloud plugin already polls the lock's DPs from Tuya's cloud — battery (`residual_electricity`), unlock counters (`unlock_fingerprint`, `unlock_password`, `unlock_card`, `unlock_ble`), alarms (`alarm_lock`), doorbell. By default it marks the device "unsupported" because there's no `lock_motor_state` DP, but you can manually map the read-only DPs with `deviceOverrides`. Example block to add to the **homebridge-tuya** plugin config (NOT this plugin's config):
+
+```jsonc
+{
+  "platform": "TuyaPlatform",
+  // ... your existing options ...
+  "deviceOverrides": [
+    {
+      "id": "<your_device_id>",
+      "category": "rs",
+      "schema": [
+        { "code": "battery_state", "id": "9", "type": "Integer", "values": "{\"min\":0,\"max\":100,\"scale\":0,\"step\":1,\"unit\":\"%\"}" }
+      ]
+    }
+  ]
+}
+```
+
+(Field names depend on your homebridge-tuya version — see its FAQ. The principle is: forcibly map `residual_electricity` to a `battery_state`-style schema entry the plugin knows how to render as a HomeKit `Battery` service.)
+
+For unlock notifications, watch the `unlock_*` event counters; each increments when someone unlocks via that method. You can wire those to HomeKit Stateless Programmable Switches via the cloud plugin's override schema or via a separate Homebridge automation plugin.
+
+This plugin in `monitorOnly: true` mode will keep a HomeKit Lock tile published (so it stays referenced in your Home app rooms / scenes) but won't try to talk BLE — eliminating the failed-connect log noise.
 
 ## Troubleshooting
 
