@@ -102,7 +102,9 @@ export class TuyaBLEPlatform implements DynamicPlatformPlugin {
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         this.log.info(`registered new lock accessory: ${lockCfg.name} (${lockCfg.mac})`);
       } else {
+        accessory.displayName = lockCfg.name;
         this.api.updatePlatformAccessories([accessory]);
+        this.log.info(`restored lock accessory from cache: ${lockCfg.name} (${lockCfg.mac})`);
       }
     }
 
