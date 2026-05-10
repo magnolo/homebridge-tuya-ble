@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 
-import { LeafLogger } from '../util/logger.js';
+import { TUYA_GATT_PROFILES } from '../settings.js';
+import type { LeafLogger } from '../util/logger.js';
 
 interface NodeBleAdapter {
   isDiscovering(): Promise<boolean>;
@@ -42,13 +43,7 @@ export interface BleTransport {
   ensureAdapterReady(): Promise<void>;
   startDiscovery(): Promise<void>;
   releaseDiscovery(): Promise<void>;
-  connectPeripheral(
-    mac: string,
-    serviceUuid: string,
-    notifyUuid: string,
-    writeUuid: string,
-    discoveryTimeoutMs: number,
-  ): Promise<PeripheralLink>;
+  connectPeripheral(mac: string, discoveryTimeoutMs: number): Promise<PeripheralLink>;
   shutdown(): Promise<void>;
 }
 
@@ -120,13 +115,7 @@ export class NodeBleTransport implements BleTransport {
     }
   }
 
-  async connectPeripheral(
-    mac: string,
-    serviceUuid: string,
-    notifyUuid: string,
-    writeUuid: string,
-    discoveryTimeoutMs: number,
-  ): Promise<PeripheralLink> {
+  async connectPeripheral(mac: string, discoveryTimeoutMs: number): Promise<PeripheralLink> {
     await this.ensureAdapterReady();
     if (!this.adapter) throw new Error('adapter not ready');
 
@@ -135,19 +124,32 @@ export class NodeBleTransport implements BleTransport {
       const device = await this.adapter.waitDevice(mac.toUpperCase(), discoveryTimeoutMs);
       await this.connectWithRetries(device);
       const gatt = await device.gatt();
-      const service = await gatt.getPrimaryService(serviceUuid);
-      const notify = await service.getCharacteristic(notifyUuid);
-      const write = await service.getCharacteristic(writeUuid);
-      await notify.startNotifications();
 
-      return {
-        device,
-        notify,
-        write,
-        onDisconnect: (handler) => {
-          device.once('disconnect', () => handler());
-        },
-      };
+      // Tuya BLE devices ship in two GATT layouts (FD50/vendor and A201/2B10/2B11).
+      // Try each profile until one resolves a usable notify+write pair.
+      let lastErr: unknown;
+      for (const profile of TUYA_GATT_PROFILES) {
+        try {
+          const service = await gatt.getPrimaryService(profile.service);
+          const notify = await service.getCharacteristic(profile.notify);
+          const write = await service.getCharacteristic(profile.write);
+          await notify.startNotifications();
+          this.log.debug(`using GATT profile ${profile.service}`);
+          return {
+            device,
+            notify,
+            write,
+            onDisconnect: (handler) => {
+              device.once('disconnect', () => handler());
+            },
+          };
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw new Error(
+        `no Tuya GATT service matched on this device: ${describeError(lastErr)}`,
+      );
     } finally {
       // Stop discovery only after the connection has succeeded (or failed) — Tuya BLE locks
       // re-enter a non-connectable state quickly, and stopping discovery early causes BlueZ

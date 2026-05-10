@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 
-import { GATT_MTU, TUYA_GATT_NOTIFY_CHAR_UUID, TUYA_GATT_SERVICE_UUID, TUYA_GATT_WRITE_CHAR_UUID } from '../settings.js';
+import { GATT_MTU } from '../settings.js';
 import type { LeafLogger } from '../util/logger.js';
 import type { BleTransport, PeripheralLink } from './bleTransport.js';
 import { AuthState, CommandCode, DpType, SecurityFlag } from './codes.js';
@@ -118,13 +118,7 @@ export class TuyaBLEDevice extends EventEmitter {
   private async doConnectAndAuth(): Promise<void> {
     this.setState(AuthState.CONNECTING);
     this.startWatchdog();
-    this.link = await this.transport.connectPeripheral(
-      this.config.mac,
-      TUYA_GATT_SERVICE_UUID,
-      TUYA_GATT_NOTIFY_CHAR_UUID,
-      TUYA_GATT_WRITE_CHAR_UUID,
-      DISCOVERY_TIMEOUT_MS,
-    );
+    this.link = await this.transport.connectPeripheral(this.config.mac, DISCOVERY_TIMEOUT_MS);
     this.link.notify.on('valuechanged', this.onNotify);
     this.link.onDisconnect(this.onRemoteDisconnect);
 
