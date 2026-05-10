@@ -281,7 +281,7 @@ export class TuyaBLEDevice extends EventEmitter {
       securityFlag: flag,
       keys: this.keys,
     });
-    const chunks = fragmentForBle(packet, GATT_MTU);
+    const chunks = fragmentForBle(packet, GATT_MTU, this.config.protocolVersion ?? 3);
     this.log.info(
       `send code=0x${code.toString(16)} flag=0x${flag.toString(16)} ` +
         `bytes=${packet.length} chunks=${chunks.length}`,

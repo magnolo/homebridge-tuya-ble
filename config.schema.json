@@ -78,6 +78,12 @@
               "default": 15000,
               "description": "Disconnect from the lock this many ms after the last activity. Set to 0 to keep the connection open (drains lock battery faster)."
             },
+            "protocolVersion": {
+              "title": "Tuya BLE protocol version",
+              "type": "integer",
+              "default": 3,
+              "description": "Tuya BLE protocol version (1, 2, or 3). Newer A201/2B10/2B11-style locks use 3; older FD50/vendor-char locks (e.g. some 8052Y units) often use 2. If the lock connects but never replies to DEVICE_INFO, try 2."
+            },
             "dpsLogLevel": {
               "title": "DP log level",
               "type": "string",
@@ -116,6 +122,7 @@
             "locks[].batteryLevelDpId",
             "locks[].batteryStateDpId",
             "locks[].idleDisconnectMs",
+            "locks[].protocolVersion",
             "locks[].dpsLogLevel"
           ]
         }

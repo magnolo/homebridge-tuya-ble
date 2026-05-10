@@ -13,6 +13,7 @@ export interface LockConfig {
   batteryStateDpId?: number;
   idleDisconnectMs?: number;
   dpsLogLevel?: 'off' | 'info' | 'debug';
+  protocolVersion?: number;
 }
 
 export interface PlatformConfigShape {

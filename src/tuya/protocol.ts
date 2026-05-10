@@ -252,10 +252,14 @@ export function unpackLeb128(buf: Buffer, offset: number): { value: number; byte
   throw new Error('leb128 truncated');
 }
 
-export function fragmentForBle(packet: Buffer, mtu: number): Buffer[] {
+export function fragmentForBle(
+  packet: Buffer,
+  mtu: number,
+  protocolVersion: number = PROTOCOL_VERSION,
+): Buffer[] {
   // Tuya BLE fragments are numbered 0, 1, 2, … *per packet* (resets every send).
-  // Fragment 0 also carries a leb128 total-length field and a protocol-version byte.
-  // The python-tuya-ble reference code in `_send_packet` does the same.
+  // Fragment 0 also carries a leb128 total-length field and a protocol-version byte
+  // (version is encoded in the upper nibble: v3 -> 0x30, v2 -> 0x20).
   const chunks: Buffer[] = [];
   let pos = 0;
   let packetNum = 0;
@@ -263,7 +267,7 @@ export function fragmentForBle(packet: Buffer, mtu: number): Buffer[] {
     const headerParts: Buffer[] = [packLeb128(packetNum)];
     if (packetNum === 0) {
       headerParts.push(packLeb128(packet.length));
-      headerParts.push(Buffer.from([(PROTOCOL_VERSION & 0x0f) << 4]));
+      headerParts.push(Buffer.from([(protocolVersion & 0x0f) << 4]));
     }
     const header = Buffer.concat(headerParts);
     const room = mtu - header.length;
