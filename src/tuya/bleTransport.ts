@@ -131,29 +131,47 @@ export class NodeBleTransport implements BleTransport {
     if (!this.adapter) throw new Error('adapter not ready');
 
     await this.startDiscovery();
-    let device: NodeBleDevice;
     try {
-      device = await this.adapter.waitDevice(mac.toUpperCase(), discoveryTimeoutMs);
+      const device = await this.adapter.waitDevice(mac.toUpperCase(), discoveryTimeoutMs);
+      await this.connectWithRetries(device);
+      const gatt = await device.gatt();
+      const service = await gatt.getPrimaryService(serviceUuid);
+      const notify = await service.getCharacteristic(notifyUuid);
+      const write = await service.getCharacteristic(writeUuid);
+      await notify.startNotifications();
+
+      return {
+        device,
+        notify,
+        write,
+        onDisconnect: (handler) => {
+          device.once('disconnect', () => handler());
+        },
+      };
     } finally {
+      // Stop discovery only after the connection has succeeded (or failed) — Tuya BLE locks
+      // re-enter a non-connectable state quickly, and stopping discovery early causes BlueZ
+      // to abort the connect with "Resource Not Ready".
       await this.releaseDiscovery();
     }
+  }
 
-    await device.connect();
-    const gatt = await device.gatt();
-    const service = await gatt.getPrimaryService(serviceUuid);
-    const notify = await service.getCharacteristic(notifyUuid);
-    const write = await service.getCharacteristic(writeUuid);
-    await notify.startNotifications();
-
-    return {
-      device,
-      notify,
-      write,
-      onDisconnect: (handler) => {
-        const disc = () => handler();
-        device.once('disconnect', disc);
-      },
-    };
+  private async connectWithRetries(device: NodeBleDevice): Promise<void> {
+    const deadline = Date.now() + 12_000;
+    let lastErr: unknown;
+    while (Date.now() < deadline) {
+      try {
+        await device.connect();
+        return;
+      } catch (err) {
+        lastErr = err;
+        const msg = describeError(err);
+        if (!isTransientConnectError(msg)) throw err;
+        this.log.debug(`connect transient (${msg}); retrying`);
+        await sleep(750);
+      }
+    }
+    throw new Error(`connect timed out after retries: ${describeError(lastErr)}`);
   }
 
   async shutdown(): Promise<void> {
@@ -181,4 +199,15 @@ function sleep(ms: number): Promise<void> {
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function isTransientConnectError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('not ready') ||
+    lower.includes('in progress') ||
+    lower.includes('le-connection-abort-by-local') ||
+    lower.includes('software caused connection abort') ||
+    lower.includes('host is down')
+  );
 }
