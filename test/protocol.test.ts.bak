@@ -155,7 +155,7 @@ describe('LEB128', () => {
 describe('BLE fragmentation', () => {
   it('first chunk carries length + protocol byte; later chunks carry only seq', () => {
     const packet = Buffer.alloc(60, 0x42);
-    const chunks = fragmentForBle(packet, 20);
+    const chunks = fragmentForBle(packet, 1, 20);
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) {
       expect(chunk.length).toBeLessThanOrEqual(20);
@@ -166,7 +166,7 @@ describe('BLE fragmentation', () => {
     const packet = Buffer.from(
       Array.from({ length: 73 }, (_, i) => (i * 7) & 0xff),
     );
-    const chunks = fragmentForBle(packet, 20);
+    const chunks = fragmentForBle(packet, 1, 20);
     const r = new BleReassembler();
     let out: Buffer | null = null;
     for (const c of chunks) {
@@ -179,22 +179,10 @@ describe('BLE fragmentation', () => {
 
   it('supports a single-chunk packet that fits in one MTU', () => {
     const packet = Buffer.from([1, 2, 3, 4]);
-    const chunks = fragmentForBle(packet, 20);
+    const chunks = fragmentForBle(packet, 1, 20);
     expect(chunks).toHaveLength(1);
     const r = new BleReassembler();
     expect(r.feed(chunks[0])!.equals(packet)).toBe(true);
-  });
-
-  it('numbers fragments sequentially 0, 1, 2, ... per packet', () => {
-    // Regression: earlier code skipped 1 and emitted 0, 2, 3, ... causing the
-    // lock to silently drop the second chunk because its packet_num gap broke
-    // reassembly.
-    const packet = Buffer.alloc(120, 0xab);
-    const chunks = fragmentForBle(packet, 20);
-    expect(chunks.length).toBeGreaterThan(2);
-    chunks.forEach((chunk, i) => {
-      expect(chunk[0]).toBe(i);
-    });
   });
 });
 

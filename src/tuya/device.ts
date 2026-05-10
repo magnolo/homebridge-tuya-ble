@@ -42,7 +42,6 @@ export class TuyaBLEDevice extends EventEmitter {
   private reassembler = new BleReassembler();
   private keys: KeyBag;
   private seqNum = 1;
-  private writePacketNum = 1;
   private pendingWaiter: PendingWaiter | null = null;
   private idleTimer: NodeJS.Timeout | null = null;
   private watchdogTimer: NodeJS.Timeout | null = null;
@@ -123,7 +122,6 @@ export class TuyaBLEDevice extends EventEmitter {
     this.link.onDisconnect(this.onRemoteDisconnect);
 
     this.seqNum = 1;
-    this.writePacketNum = 1;
     this.reassembler.reset();
     this.keys = { loginKey: deriveLoginKey(this.config.local_key) };
 
@@ -269,7 +267,6 @@ export class TuyaBLEDevice extends EventEmitter {
     }
     this.keys = { loginKey: this.keys.loginKey };
     this.seqNum = 1;
-    this.writePacketNum = 1;
     this.reassembler.reset();
     this.setState(AuthState.DISCONNECTED);
   }
@@ -284,8 +281,7 @@ export class TuyaBLEDevice extends EventEmitter {
       securityFlag: flag,
       keys: this.keys,
     });
-    const chunks = fragmentForBle(packet, this.writePacketNum, GATT_MTU);
-    this.writePacketNum += chunks.length;
+    const chunks = fragmentForBle(packet, GATT_MTU);
     this.log.info(
       `send code=0x${code.toString(16)} flag=0x${flag.toString(16)} ` +
         `bytes=${packet.length} chunks=${chunks.length}`,
