@@ -19,9 +19,9 @@ import {
 import type { KeyBag } from './protocol.js';
 import type { Datapoint, DpValue, LockConfig, ParsedPacket } from './types.js';
 
-const HANDSHAKE_TIMEOUT_MS = 5_000;
-const STATUS_TIMEOUT_MS = 7_000;
-const WATCHDOG_TIMEOUT_MS = 20_000;
+const HANDSHAKE_TIMEOUT_MS = 30_000;
+const STATUS_TIMEOUT_MS = 30_000;
+const WATCHDOG_TIMEOUT_MS = 90_000;
 const DEFAULT_IDLE_DISCONNECT_MS = 15_000;
 const DISCOVERY_TIMEOUT_MS = 30_000;
 const BACKOFF_SCHEDULE_MS = [1_000, 2_000, 5_000, 15_000, 60_000];

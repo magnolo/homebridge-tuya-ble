@@ -134,7 +134,9 @@ export class NodeBleTransport implements BleTransport {
           const notify = await service.getCharacteristic(profile.notify);
           const write = await service.getCharacteristic(profile.write);
           await notify.startNotifications();
-          this.log.info(`using GATT profile ${profile.service}`);
+          this.log.info(
+            `using GATT profile ${profile.service} (notify=${profile.notify}, write=${profile.write}); notifications enabled`,
+          );
           return {
             device,
             notify,
