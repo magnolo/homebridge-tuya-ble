@@ -1,0 +1,125 @@
+{
+  "pluginAlias": "TuyaBLELock",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Tuya BLE-only smart locks bridged to HomeKit via this Raspberry Pi's Bluetooth radio. Get each lock's `device_id`, `uuid` and `local_key` from cloud.tuya.com (IoT platform → Cloud → Development → API Explorer → /v2.0/cloud/thing/{device_id}).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Tuya BLE Locks",
+        "required": true
+      },
+      "locks": {
+        "title": "Locks",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Display name",
+              "type": "string",
+              "required": true
+            },
+            "mac": {
+              "title": "MAC address",
+              "type": "string",
+              "required": true,
+              "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",
+              "placeholder": "AA:BB:CC:DD:EE:FF"
+            },
+            "uuid": {
+              "title": "Tuya UUID",
+              "type": "string",
+              "required": true
+            },
+            "device_id": {
+              "title": "Device ID",
+              "type": "string",
+              "required": true
+            },
+            "local_key": {
+              "title": "Local key",
+              "type": "string",
+              "required": true
+            },
+            "product_id": {
+              "title": "Product ID",
+              "type": "string",
+              "required": false
+            },
+            "lockDpId": {
+              "title": "Lock DP id",
+              "type": "integer",
+              "default": 47,
+              "description": "Datapoint id used to lock/unlock. 47 works for most BLE locks; if yours is different, enable debug logging and trigger the lock from the Tuya app to find the right id."
+            },
+            "lockInverted": {
+              "title": "Invert lock direction",
+              "type": "boolean",
+              "default": false,
+              "description": "Enable if HomeKit shows 'locked' when the lock is actually open."
+            },
+            "batteryLevelDpId": {
+              "title": "Battery level DP id",
+              "type": "integer",
+              "default": 9
+            },
+            "batteryStateDpId": {
+              "title": "Battery state DP id",
+              "type": "integer",
+              "default": 8
+            },
+            "idleDisconnectMs": {
+              "title": "Idle disconnect (ms)",
+              "type": "integer",
+              "default": 15000,
+              "description": "Disconnect from the lock this many ms after the last activity. Set to 0 to keep the connection open (drains lock battery faster)."
+            },
+            "dpsLogLevel": {
+              "title": "DP log level",
+              "type": "string",
+              "default": "info",
+              "oneOf": [
+                { "title": "Off", "enum": ["off"] },
+                { "title": "Info (log every received DP)", "enum": ["info"] },
+                { "title": "Debug (log every packet)", "enum": ["debug"] }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "form": [
+    "name",
+    {
+      "key": "locks",
+      "type": "array",
+      "items": [
+        "locks[].name",
+        "locks[].mac",
+        "locks[].uuid",
+        "locks[].device_id",
+        "locks[].local_key",
+        {
+          "type": "fieldset",
+          "title": "Advanced",
+          "expandable": true,
+          "expanded": false,
+          "items": [
+            "locks[].product_id",
+            "locks[].lockDpId",
+            "locks[].lockInverted",
+            "locks[].batteryLevelDpId",
+            "locks[].batteryStateDpId",
+            "locks[].idleDisconnectMs",
+            "locks[].dpsLogLevel"
+          ]
+        }
+      ]
+    }
+  ]
+}

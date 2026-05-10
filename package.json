@@ -1,0 +1,49 @@
+{
+  "name": "homebridge-tuya-ble-lock",
+  "displayName": "Tuya BLE Lock",
+  "version": "0.1.0",
+  "description": "Homebridge plugin that turns a Raspberry Pi into a BLE gateway for Tuya BLE-only smart locks.",
+  "license": "MIT",
+  "author": "Manfred",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run lint && npm run test && npm run build"
+  },
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0",
+    "homebridge": "^2.0.0"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "tuya",
+    "ble",
+    "bluetooth",
+    "lock",
+    "smartlock"
+  ],
+  "dependencies": {
+    "node-ble": "^1.13.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.3.0",
+    "homebridge": "^2.0.2",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5"
+  },
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ]
+}

@@ -1,0 +1,184 @@
+import { EventEmitter } from 'node:events';
+
+import { LeafLogger } from '../util/logger.js';
+
+interface NodeBleAdapter {
+  isDiscovering(): Promise<boolean>;
+  startDiscovery(): Promise<void>;
+  stopDiscovery(): Promise<void>;
+  waitDevice(mac: string, timeout?: number): Promise<NodeBleDevice>;
+  getDevice(mac: string): Promise<NodeBleDevice>;
+}
+
+interface NodeBleDevice extends EventEmitter {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  isConnected(): Promise<boolean>;
+  gatt(): Promise<NodeBleGatt>;
+}
+
+interface NodeBleGatt {
+  getPrimaryService(uuid: string): Promise<NodeBleService>;
+}
+
+interface NodeBleService {
+  getCharacteristic(uuid: string): Promise<NodeBleCharacteristic>;
+}
+
+interface NodeBleCharacteristic extends EventEmitter {
+  startNotifications(): Promise<void>;
+  stopNotifications(): Promise<void>;
+  writeValue(buf: Buffer, options?: { type?: 'command' | 'request' | 'reliable' }): Promise<void>;
+}
+
+export interface PeripheralLink {
+  notify: NodeBleCharacteristic;
+  write: NodeBleCharacteristic;
+  device: NodeBleDevice;
+  onDisconnect: (handler: () => void) => void;
+}
+
+export interface BleTransport {
+  ensureAdapterReady(): Promise<void>;
+  startDiscovery(): Promise<void>;
+  releaseDiscovery(): Promise<void>;
+  connectPeripheral(
+    mac: string,
+    serviceUuid: string,
+    notifyUuid: string,
+    writeUuid: string,
+    discoveryTimeoutMs: number,
+  ): Promise<PeripheralLink>;
+  shutdown(): Promise<void>;
+}
+
+interface NodeBleHandle {
+  bluetooth: {
+    defaultAdapter(): Promise<NodeBleAdapter>;
+  };
+  destroy(): void;
+}
+
+interface NodeBleModule {
+  createBluetooth(): NodeBleHandle;
+}
+
+export class NodeBleTransport implements BleTransport {
+  private handle: NodeBleHandle | null = null;
+  private adapter: NodeBleAdapter | null = null;
+  private discoveryRefCount = 0;
+
+  constructor(private readonly log: LeafLogger) {}
+
+  async ensureAdapterReady(): Promise<void> {
+    if (this.adapter) return;
+    if (!this.handle) {
+      const mod = (await import('node-ble')) as unknown as NodeBleModule;
+      this.handle = mod.createBluetooth();
+    }
+    const start = Date.now();
+    let lastErr: unknown;
+    while (Date.now() - start < 30_000) {
+      try {
+        this.adapter = await this.handle.bluetooth.defaultAdapter();
+        this.log.info('BlueZ adapter acquired');
+        return;
+      } catch (err) {
+        lastErr = err;
+        await sleep(2_000);
+      }
+    }
+    throw new Error(`failed to acquire BlueZ adapter within 30s: ${describeError(lastErr)}`);
+  }
+
+  async startDiscovery(): Promise<void> {
+    await this.ensureAdapterReady();
+    if (!this.adapter) throw new Error('adapter not ready');
+    this.discoveryRefCount++;
+    if (this.discoveryRefCount === 1) {
+      const already = await this.adapter.isDiscovering();
+      if (!already) {
+        await this.adapter.startDiscovery();
+        this.log.debug('discovery started');
+      }
+    }
+  }
+
+  async releaseDiscovery(): Promise<void> {
+    if (this.discoveryRefCount === 0) return;
+    this.discoveryRefCount--;
+    if (this.discoveryRefCount === 0 && this.adapter) {
+      const active = await this.adapter.isDiscovering();
+      if (active) {
+        try {
+          await this.adapter.stopDiscovery();
+          this.log.debug('discovery stopped');
+        } catch (err) {
+          this.log.warn(`stopDiscovery failed: ${describeError(err)}`);
+        }
+      }
+    }
+  }
+
+  async connectPeripheral(
+    mac: string,
+    serviceUuid: string,
+    notifyUuid: string,
+    writeUuid: string,
+    discoveryTimeoutMs: number,
+  ): Promise<PeripheralLink> {
+    await this.ensureAdapterReady();
+    if (!this.adapter) throw new Error('adapter not ready');
+
+    await this.startDiscovery();
+    let device: NodeBleDevice;
+    try {
+      device = await this.adapter.waitDevice(mac.toUpperCase(), discoveryTimeoutMs);
+    } finally {
+      await this.releaseDiscovery();
+    }
+
+    await device.connect();
+    const gatt = await device.gatt();
+    const service = await gatt.getPrimaryService(serviceUuid);
+    const notify = await service.getCharacteristic(notifyUuid);
+    const write = await service.getCharacteristic(writeUuid);
+    await notify.startNotifications();
+
+    return {
+      device,
+      notify,
+      write,
+      onDisconnect: (handler) => {
+        const disc = () => handler();
+        device.once('disconnect', disc);
+      },
+    };
+  }
+
+  async shutdown(): Promise<void> {
+    try {
+      if (this.adapter && this.discoveryRefCount > 0) {
+        const active = await this.adapter.isDiscovering();
+        if (active) await this.adapter.stopDiscovery();
+      }
+    } catch (err) {
+      this.log.warn(`shutdown stopDiscovery: ${describeError(err)}`);
+    }
+    this.discoveryRefCount = 0;
+    if (this.handle) {
+      this.handle.destroy();
+      this.handle = null;
+      this.adapter = null;
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
