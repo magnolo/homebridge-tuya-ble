@@ -200,12 +200,17 @@ export class TuyaBLEDevice extends EventEmitter {
   }
 
   private onNotify = (chunk: Buffer): void => {
+    if (this.config.dpsLogLevel === 'debug') {
+      this.log.debug(`recv chunk (${chunk.length}B) ${chunk.toString('hex')}`);
+    }
     try {
       const full = this.reassembler.feed(chunk);
       if (!full) return;
       const packet = decodePacket(full, this.keys);
       if (this.config.dpsLogLevel === 'debug') {
-        this.log.debug(`recv code=0x${packet.code.toString(16)} data=${packet.data.toString('hex')}`);
+        this.log.debug(
+          `recv code=0x${packet.code.toString(16)} data=${packet.data.toString('hex')}`,
+        );
       }
       this.handlePacket(packet);
     } catch (err) {
@@ -285,8 +290,14 @@ export class TuyaBLEDevice extends EventEmitter {
     });
     const chunks = fragmentForBle(packet, this.writePacketNum, GATT_MTU);
     this.writePacketNum += chunks.length;
+    if (this.config.dpsLogLevel === 'debug') {
+      this.log.debug(
+        `send code=0x${code.toString(16)} flag=0x${flag.toString(16)} ` +
+          `bytes=${packet.length} chunks=${chunks.length}`,
+      );
+    }
     for (const chunk of chunks) {
-      await this.link.write.writeValue(chunk, { type: 'request' });
+      await this.link.write.writeValue(chunk, { type: 'command' });
     }
   }
 
